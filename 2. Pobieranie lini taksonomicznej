@@ -1,0 +1,94 @@
+from Bio import Entrez, SeqIO
+import time
+
+# Ustawienia globalne
+Entrez.email = "entrez@email.com"
+
+def fetch_protein_record(accession_number):
+    """
+    Pobiera rekord białkowy z GenBank na podstawie numeru dostępu.
+    
+    Parametry:
+        accession_number (str): Numer dostępu białka.
+        
+    Zwraca:
+        record (SeqRecord): Obiekt rekordu białka z GenBank.
+    """
+    with Entrez.efetch(db="protein", id=accession_number, rettype="gb", retmode="text") as handle:
+        record = SeqIO.read(handle, "genbank")
+    return record
+
+def extract_taxid(record):
+    """
+    Wyodrębnia identyfikator taksonomiczny (taxid) z rekordu GenBank.
+    
+    Parametry:
+        record (SeqRecord): Obiekt rekordu białka z GenBank.
+        
+    Zwraca:
+        str: Identyfikator taxid lub informację "Brak taxid", jeśli nie znaleziono.
+    """
+    for feature in record.features:
+        if feature.type == "source":
+            taxid_qualifiers = feature.qualifiers.get("db_xref", [])
+            for db_xref in taxid_qualifiers:
+                if db_xref.startswith("taxon:"):
+                    return db_xref.split(":")[1]
+    return "Brak taxid"
+
+def fetch_taxonomic_lineage(taxid):
+    """
+    Pobiera pełną linię taksonomiczną na podstawie taxid.
+    
+    Parametry:
+        taxid (str): Identyfikator taxid.
+        
+    Zwraca:
+        str: Linia taksonomiczna lub informacja o błędzie.
+    """
+    try:
+        with Entrez.efetch(db="taxonomy", id=taxid, retmode="xml") as handle:
+            records = Entrez.read(handle)
+            lineage = records[0]["Lineage"]
+            return lineage
+    except Exception as e:
+        print(f"Błąd podczas pobierania linii taksonomicznej dla taxid {taxid}: {e}")
+        return "Błąd pobierania linii taksonomicznej"
+
+def main():
+    # Wczytanie numerów dostępu z pliku
+    input_file = 'input.txt'
+    output_file = 'output.txt'
+
+    with open(input_file, 'r') as file:
+        accession_numbers = [line.strip() for line in file]
+
+    with open(output_file, 'w') as outfile:
+        for accession_number in accession_numbers:
+            if accession_number:
+                try:
+                    # Pobierz rekord białkowy i wyodrębnij taxid
+                    record = fetch_protein_record(accession_number)
+                    taxid = extract_taxid(record)
+
+                    # Jeśli taxid istnieje, pobierz linię taksonomiczną
+                    if taxid != "Brak taxid":
+                        lineage = fetch_taxonomic_lineage(taxid)
+                    else:
+                        lineage = "Brak linii taksonomicznej"
+
+                    # Zapisz wyniki do pliku
+                    outfile.write(f"{accession_number}\t{taxid}\t{lineage}\n")
+                    print(f"{accession_number}\t{taxid}\t{lineage}")
+
+                except Exception as e:
+                    outfile.write(f"{accession_number}\tBłąd\tBłąd przetwarzania: {e}\n")
+                    print(f"Błąd dla {accession_number}: {e}")
+
+                # Opóźnienie 3 sekundy między wyszukiwaniami
+                time.sleep(3)
+
+    print(f"Wyniki zostały zapisane do pliku {output_file}")
+
+if __name__ == "__main__":
+    main()
