@@ -1,0 +1,46 @@
+import re
+import os
+
+# Funkcja do przetwarzania pliku
+def process_protein_file(input_file, output_file):
+    with open(input_file, 'r') as infile, open(output_file, 'w') as outfile:
+        data = infile.read()
+
+        # Regex do znajdowania interesujących nas fragmentów
+        pattern = re.compile(
+            r'(PEPSTATS of .+? from \d+ to \d+).*?'
+            r'(Molecular weight = [\d\.]+).*?'
+            r'(Residues = \d+).*?'
+            r'(Average Residue Weight  = [\d\.]+).*?'
+            r'(Charge   = [\d\.]+).*?'
+            r'(Isoelectric Point = [\d\.]+).*?'
+            r'(A280 Molar Extinction Coefficient  = \d+).*?'
+            r'(A280 Extinction Coefficient 1mg/ml = [\d\.]+).*?'
+            r'(Probability of expression in inclusion bodies = [\d\.]+)',
+            re.DOTALL
+        )
+
+        # Znalezienie wszystkich dopasowań
+        matches = pattern.findall(data)
+
+        # Zapisanie wyników do nowego pliku
+        for match in matches:
+            for line in match:
+                outfile.write(line + '\n')
+            outfile.write('\n')
+
+# Główna funkcja
+def main():
+    num_files = 1
+    for i in range(1, num_files + 1):
+        input_file = f'input.pepstats'
+        output_file = f'output.txt'
+        if os.path.exists(input_file):
+            process_protein_file(input_file, output_file)
+        else:
+            print(f'Plik {input_file} nie istnieje.')
+
+# Uruchomienie głównej funkcji
+if __name__ == '__main__':
+    main()
+
